@@ -42,7 +42,11 @@ DEFAULT_DATA_COLUMNS = ["date", "tic", "close"]
 ## stockstats technical indicator column names
 ## check https://pypi.org/project/stockstats/ for different names
 #TECHNICAL_INDICATORS_LIST = ["macd","boll_ub","boll_lb","rsi_30", "cci_30", "dx_30","close_30_sma","close_60_sma"]
-TECHNICAL_INDICATORS_LIST = ["macd","rsi_30", "cci_30", "dx_30"]
+TECHNICAL_INDICATORS_LIST = ["macd","boll_ub","boll_lb","rsi_30", "cci_30", "dx_30","close_30_sma","close_60_sma"]
+SENTIMENT_INDICATORS_LIST = ["tweets","news"]
+# USER_INDICATORS_LIST = ['daily_return','return_lag_1','return_lag_2','return_lag_3','return_lag_4']
+USER_INDICATORS_LIST = ['daily_return','return_lag_1','return_lag_2']
+
 
 
 ## Model Parameters
@@ -67,6 +71,12 @@ SAC_PARAMS = {
 ########################################################
 ############## Stock Ticker Setup starts ##############
 SINGLE_TICKER = ["AAPL"]
+
+df1 = pd.read_csv('datasets/Nifty.csv')
+NIFTY_50_TICKER = df1['Symbol'].values
+
+df1 = pd.read_csv('datasets/Sensex.csv')
+SENSEX_30_TICKER = df1['Symbol'].values
 
 # self defined
 SRI_KEHATI_TICKER = [

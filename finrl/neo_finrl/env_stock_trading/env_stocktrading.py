@@ -26,7 +26,10 @@ class StockTradingEnv(gym.Env):
                 state_space,
                 action_space,
                 tech_indicator_list,
+                sentiment_indicator_list,
+                user_indicator_list,
                 turbulence_threshold=None,
+                vix_threshold=None,
                 risk_indicator_col='turbulence',
                 make_plots = False, 
                 print_verbosity = 10,
@@ -47,6 +50,8 @@ class StockTradingEnv(gym.Env):
         self.state_space = state_space
         self.action_space = action_space
         self.tech_indicator_list = tech_indicator_list
+        self.sentiment_indicator_list = sentiment_indicator_list
+        self.user_indicator_list = user_indicator_list
         self.action_space = spaces.Box(low = -1, high = 1,shape = (self.action_space,)) 
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape = (self.state_space,))
         self.data = self.df.loc[self.day,:]
@@ -54,6 +59,7 @@ class StockTradingEnv(gym.Env):
         self.make_plots = make_plots
         self.print_verbosity = print_verbosity
         self.turbulence_threshold = turbulence_threshold
+        self.vix_threshold = vix_threshold
         self.risk_indicator_col = risk_indicator_col
         self.initial = initial
         self.previous_state = previous_state
@@ -66,6 +72,7 @@ class StockTradingEnv(gym.Env):
         # initialize reward
         self.reward = 0
         self.turbulence = 0
+        self.vix = 0
         self.cost = 0
         self.trades = 0
         self.episode = 0
@@ -102,8 +109,8 @@ class StockTradingEnv(gym.Env):
             return sell_num_shares
             
         # perform sell action based on the sign of the action
-        if self.turbulence_threshold is not None:
-            if self.turbulence>=self.turbulence_threshold:
+        if (self.turbulence_threshold is not None) or (self.vix_threshold is not None):
+            if (self.turbulence>=self.turbulence_threshold) or (self.vix>=self.vix_threshold):
                 if self.state[index+1]>0: 
                     # Sell only if the price is > 0 (no missing data in this particular date)
                     # if turbulence goes over threshold, just clear out all positions 
@@ -152,10 +159,10 @@ class StockTradingEnv(gym.Env):
             return buy_num_shares
 
         # perform buy action based on the sign of the action
-        if self.turbulence_threshold is None:
+        if (self.turbulence_threshold is None) or (self.vix_threshold is None):
             buy_num_shares = _do_buy()
         else:
-            if self.turbulence< self.turbulence_threshold:
+            if (self.turbulence < self.turbulence_threshold) and (self.vix < self.vix_threshold):
                 buy_num_shares = _do_buy()
             else:
                 buy_num_shares = 0
@@ -220,8 +227,8 @@ class StockTradingEnv(gym.Env):
 
             actions = actions * self.hmax #actions initially is scaled between 0 to 1
             actions = (actions.astype(int)) #convert into integer because we can't by fraction of shares
-            if self.turbulence_threshold is not None:
-                if self.turbulence>=self.turbulence_threshold:
+            if (self.turbulence_threshold is not None) or (self.vix_threshold is not None):
+                if (self.turbulence>=self.turbulence_threshold) or (self.vix>=self.vix_threshold) :
                     actions=np.array([-self.hmax]*self.stock_dim)
             begin_total_asset = self.state[0]+ \
             sum(np.array(self.state[1:(self.stock_dim+1)])*np.array(self.state[(self.stock_dim+1):(self.stock_dim*2+1)]))
@@ -253,6 +260,8 @@ class StockTradingEnv(gym.Env):
                     self.turbulence = self.data[self.risk_indicator_col]
                 elif len(self.df.tic.unique()) > 1:
                     self.turbulence = self.data[self.risk_indicator_col].values[0]
+            if self.vix_threshold is not None:     
+                self.vix = self.data['VIX'].values[0]
             self.state = self._update_state()
             
             end_total_asset = self.state[0]+ \
@@ -302,7 +311,9 @@ class StockTradingEnv(gym.Env):
                 state = [self.initial_amount] + \
                          self.data.close.values.tolist() + \
                          [0]*self.stock_dim  + \
-                         sum([self.data[tech].values.tolist() for tech in self.tech_indicator_list ], [])
+                         sum([self.data[tech].values.tolist() for tech in self.tech_indicator_list ], []) + \
+                         sum([self.data[sent].values.tolist() for sent in self.sentiment_indicator_list ], []) + \
+                         sum([self.data[us].values.tolist() for us in self.user_indicator_list ], [])
             else:
                 # for single stock
                 state = [self.initial_amount] + \
@@ -316,7 +327,9 @@ class StockTradingEnv(gym.Env):
                 state = [self.previous_state[0]] + \
                          self.data.close.values.tolist() + \
                          self.previous_state[(self.stock_dim+1):(self.stock_dim*2+1)]  + \
-                         sum([self.data[tech].values.tolist() for tech in self.tech_indicator_list ], [])
+                         sum([self.data[tech].values.tolist() for tech in self.tech_indicator_list ], []) + \
+                         sum([self.data[sent].values.tolist() for sent in self.sentiment_indicator_list ], []) + \
+                         sum([self.data[us].values.tolist() for us in self.user_indicator_list ], [])
             else:
                 # for single stock
                 state = [self.previous_state[0]] + \
@@ -331,7 +344,9 @@ class StockTradingEnv(gym.Env):
             state =  [self.state[0]] + \
                       self.data.close.values.tolist() + \
                       list(self.state[(self.stock_dim+1):(self.stock_dim*2+1)]) + \
-                      sum([self.data[tech].values.tolist() for tech in self.tech_indicator_list ], [])
+                      sum([self.data[tech].values.tolist() for tech in self.tech_indicator_list ], []) + \
+                      sum([self.data[sent].values.tolist() for sent in self.sentiment_indicator_list ], []) + \
+                      sum([self.data[us].values.tolist() for us in self.user_indicator_list ], [])
 
         else:
             # for single stock

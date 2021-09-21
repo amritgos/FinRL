@@ -3,7 +3,7 @@ import pandas as pd
 from stockstats import StockDataFrame as Sdf
 from finrl.apps import config
 from finrl.neo_finrl.preprocessor.yahoodownloader import YahooDownloader
-
+import datetime
 import itertools
 
 def load_dataset(*, file_name: str) -> pd.DataFrame:
@@ -61,12 +61,16 @@ class FeatureEngineer:
         tech_indicator_list=config.TECHNICAL_INDICATORS_LIST,
         use_vix = False,
         use_turbulence=False,
+        use_sentiment=False,
+        sentiment_df=None,
         user_defined_feature=False,
     ):
         self.use_technical_indicator = use_technical_indicator
         self.tech_indicator_list = tech_indicator_list
         self.use_vix = use_vix
         self.use_turbulence = use_turbulence
+        self.use_sentiment = use_sentiment
+        self.sentiment_df = sentiment_df
         self.user_defined_feature = user_defined_feature
 
     def preprocess_data(self, df):
@@ -92,13 +96,20 @@ class FeatureEngineer:
             df = self.add_turbulence(df)
             print("Successfully added turbulence index")
 
+        if self.use_sentiment == True:
+            df = self.add_sentiment(df)
+            print("Successfully added Sentiment Features")
+
+        # fill the missing values at the beginning and the end
+        df = df.fillna(method="bfill").fillna(method="ffill")
+
         # add user defined feature
         if self.user_defined_feature == True:
             df = self.add_user_defined_feature(df)
             print("Successfully added user defined features")
 
-        # fill the missing values at the beginning and the end
-        df = df.fillna(method="bfill").fillna(method="ffill")
+        df = df.dropna()
+
         return df
     
     def clean_data(self, data):
@@ -164,11 +175,13 @@ class FeatureEngineer:
         :return: (df) pandas dataframe
         """
         df = data.copy()
-        df["daily_return"] = df.close.pct_change(1)
-        # df['return_lag_1']=df.close.pct_change(2)
-        # df['return_lag_2']=df.close.pct_change(3)
-        # df['return_lag_3']=df.close.pct_change(4)
-        # df['return_lag_4']=df.close.pct_change(5)
+        for ticker in list(df['tic'].unique()):
+            df1 = df.loc[df['tic']==ticker]
+            df.loc[df['tic']==ticker,"daily_return"]=df1.close.pct_change(1)
+            df.loc[df['tic']==ticker,'return_lag_1']=df1.close.pct_change(2)
+            df.loc[df['tic']==ticker,'return_lag_2']=df1.close.pct_change(3)
+            # df.loc[df['tic']==ticker,'return_lag_3']=df1.close.pct_change(4)
+            # df.loc[df['tic']==ticker,'return_lag_4']=df1.close.pct_change(5)
         return df
     
     def add_vix(self, data):
@@ -180,7 +193,7 @@ class FeatureEngineer:
         df = data.copy()
         df_vix = YahooDownloader(start_date = df.date.min(),
                                 end_date = df.date.max(),
-                                ticker_list = ["^VIX"]).fetch_data()
+                                ticker_list = ["^INDIAVIX"]).fetch_data()
         vix = df_vix[['date','close']]
         vix.columns = ['date','vix']
 
@@ -197,6 +210,13 @@ class FeatureEngineer:
         df = data.copy()
         turbulence_index = self.calculate_turbulence(df)
         df = df.merge(turbulence_index, on="date")
+        df = df.sort_values(["date", "tic"]).reset_index(drop=True)
+        return df
+
+    def add_sentiment(self, data):
+        df = data.copy()
+        sentiment = self.sentiment_df
+        df = df.merge(sentiment, on=["date","tic"], how='left')
         df = df.sort_values(["date", "tic"]).reset_index(drop=True)
         return df
 
