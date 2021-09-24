@@ -96,12 +96,12 @@ class FeatureEngineer:
             df = self.add_turbulence(df)
             print("Successfully added turbulence index")
 
+        # fill the missing values at the beginning and the end
+        df = df.fillna(method="bfill").fillna(method="ffill")
+
         if self.use_sentiment == True:
             df = self.add_sentiment(df)
             print("Successfully added Sentiment Features")
-
-        # fill the missing values at the beginning and the end
-        df = df.fillna(method="bfill").fillna(method="ffill")
 
         # add user defined feature
         if self.user_defined_feature == True:
@@ -218,6 +218,7 @@ class FeatureEngineer:
         sentiment = self.sentiment_df
         df = df.merge(sentiment, on=["date","tic"], how='left')
         df = df.sort_values(["date", "tic"]).reset_index(drop=True)
+        df = df.fillna(0)
         return df
 
     def calculate_turbulence(self, data):
