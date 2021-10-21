@@ -14,7 +14,6 @@ from stable_baselines3 import A2C
 from stable_baselines3 import PPO
 from stable_baselines3 import TD3
 from stable_baselines3.td3.policies import MlpPolicy
-from baselines.a2c.policies import CnnPolicy, LstmPolicy, LnLstmPolicy
 from stable_baselines3.common.noise import (
     NormalActionNoise,
     OrnsteinUhlenbeckActionNoise,
